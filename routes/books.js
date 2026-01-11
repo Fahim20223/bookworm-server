@@ -5,7 +5,7 @@ const Genre = require('../models/Genre');
 const UserBook = require('../models/UserBook');
 const Review = require('../models/Review');
 const { auth, adminAuth } = require('../middleware/auth');
-const { upload } = require('../config/cloudinary');
+const { upload, uploadToCloudinary } = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -119,9 +119,19 @@ router.post('/',
         return res.status(400).json({ message: 'Invalid genre' });
       }
 
+      // Upload image to cloudinary
+      let coverImageUrl = '';
+      try {
+        const result = await uploadToCloudinary(req.file.buffer);
+        coverImageUrl = result.secure_url;
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError);
+        return res.status(500).json({ message: 'Failed to upload cover image' });
+      }
+
       const bookData = {
         ...req.body,
-        coverImage: req.file.path,
+        coverImage: coverImageUrl,
         totalPages: req.body.totalPages || 0
       };
 
@@ -153,8 +163,15 @@ router.put('/:id',
       }
 
       const updateData = { ...req.body };
+      
       if (req.file) {
-        updateData.coverImage = req.file.path;
+        try {
+          const result = await uploadToCloudinary(req.file.buffer);
+          updateData.coverImage = result.secure_url;
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          return res.status(500).json({ message: 'Failed to upload cover image' });
+        }
       }
 
       // Verify genre if provided

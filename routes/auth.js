@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
-const { upload } = require('../config/cloudinary');
+const { upload, uploadToCloudinary } = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -30,12 +30,23 @@ router.post('/register',
         return res.status(400).json({ message: 'User already exists with this email' });
       }
 
+      let photoUrl = '';
+      if (req.file) {
+        try {
+          const result = await uploadToCloudinary(req.file.buffer);
+          photoUrl = result.secure_url;
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue without photo if upload fails
+        }
+      }
+
       // Create new user
       const userData = {
         name,
         email,
         password,
-        photo: req.file ? req.file.path : ''
+        photo: photoUrl
       };
 
       const user = new User(userData);
